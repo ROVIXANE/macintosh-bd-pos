@@ -28,7 +28,7 @@ import { readFile, writeFile, readdir } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join, resolve } from 'node:path'
-import { orderMigrations, extractVersion, checksum, assertNoTopLevelTxn, migrationScript, TRACKING_SETUP_SQL } from './migrate-lib.mjs'
+import { orderMigrations, extractVersion, checksum, assertNoTopLevelTxn, TRACKING_SETUP_SQL } from './migrate-lib.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(__dirname, '..')
@@ -129,9 +129,39 @@ async function applyDirect(dbUrl, migrations) {
         continue
       }
       if (DRY_RUN) { log(`(dry-run) would apply ${m.name}`); continue }
-      const script = migrationScript(m.sql, m.name, m.version, m.checksum)
-      await sql.unsafe(script).simple() // single transaction: apply + record, rollback on error
-      log(`+ ${m.name}: applied.`)
+
+      // Split into individual statements with the real PostgreSQL grammar so we can
+      // report EXACTLY which statement fails; apply atomically in one transaction.
+      const statements = await splitStatements(m.sql)
+      const total = statements.length
+      try {
+        await sql.begin(async (tx) => {
+          await tx.unsafe(`select pg_advisory_xact_lock(hashtext('macintosh-bd-pos-migrations'))`).simple()
+          for (let i = 0; i < total; i++) {
+            try {
+              await tx.unsafe(statements[i]).simple()
+            } catch (err) {
+              err.migrationStatement = {
+                migration: m.name, version: m.version, index: i + 1, of: total,
+                sql: preview(statements[i]),
+              }
+              throw err
+            }
+          }
+          await tx`
+            insert into supabase_migrations.schema_migrations (version, name, checksum, applied_at)
+            values (${m.version}, ${m.name}, ${m.checksum}, now())
+          `
+        })
+      } catch (err) {
+        const st = err?.migrationStatement
+        process.stderr.write(`\nERROR applying ${m.name}${st ? ` — statement ${st.index}/${st.of}` : ''}:\n`)
+        if (st) process.stderr.write(`  SQL: ${st.sql}\n`)
+        process.stderr.write(`  ${redact(err?.message || err)}\n`)
+        if (err?.position) process.stderr.write(`  position: ${err.position}\n`)
+        throw err
+      }
+      log(`+ ${m.name}: applied (${total} statement(s)).`)
     }
 
     if (DRY_RUN) return { dryRun: true }
@@ -140,6 +170,34 @@ async function applyDirect(dbUrl, migrations) {
   } finally {
     await sql.end({ timeout: 5 })
   }
+}
+
+/** Split a migration into individual statements via real PostgreSQL grammar; slice original text. */
+async function splitStatements(sqlText) {
+  const { parse, scan } = await import('libpg-query')
+  await parse(sqlText) // validate grammar first
+  const { tokens } = await scan(sqlText)
+  // Split ONLY on real `;` tokens (never inside strings/dollar bodies/comments).
+  const semis = (tokens || [])
+    .filter((t) => sqlText.slice(t.start, t.end) === ';')
+    .map((t) => t.start)
+    .sort((a, b) => a - b)
+  const out = []
+  let last = 0
+  for (const pos of semis) {
+    const seg = sqlText.slice(last, pos).trim()
+    if (seg.length) out.push(seg)
+    last = pos + 1
+  }
+  const tail = sqlText.slice(last).trim()
+  if (tail.length) out.push(tail)
+  return out
+}
+
+/** Short, secret-free preview of a statement. */
+function preview(sql) {
+  const oneLine = redact(sql).replace(/\s+/g, ' ').trim()
+  return oneLine.length > 240 ? `${oneLine.slice(0, 240)}…` : oneLine
 }
 
 // ---------- DB route B: Supabase Management API ------------------------------
@@ -194,12 +252,13 @@ async function updateProgress(status) {
     `## Migration runner status (auto-generated ${new Date().toISOString()})`,
     '',
     `- Runner: \`scripts/migrate.mjs\` (Node, no Supabase CLI binary, no publishable key for DDL, no reset/drop).`,
-    `- Migrations found & ordered: ${status.total}. Applied set: ${JSON.stringify(status.applied ?? [])}.`,
+    `- Migrations found & ordered: ${status.total}. Applied set: ${JSON.stringify(status.appliedMigrations ?? status.applied ?? [])}.`,
     `- Route used: ${status.route}.`,
     status.dryRun ? '- DRY RUN: no database changes made.' : `- Tables: ${status.table_count ?? '?'}; RLS on: ${status.tables_with_rls ?? '?'}; without RLS: ${status.tables_without_rls ?? '?'}.`,
     status.dryRun ? '' : `- Policies: ${status.policy_count ?? '?'}; tables without policies: ${JSON.stringify(status.tables_without_policies ?? [])}.`,
     status.dryRun ? '' : `- Functions: ${status.function_count ?? '?'}; missing required: ${JSON.stringify(status.missing_required_functions ?? [])}; security-definer w/o pinned search_path: ${status.security_definer_unpinned_search_path ?? '?'}.`,
     status.dryRun ? '' : `- Seeds: roles=${status.role_seed_count ?? '?'}; store_settings=${status.store_settings_count ?? '?'}.`,
+    `- Scope: results from the database this was last run against; remote-Supabase status is in "Database status" above.`,
     `- Credentials: read from environment only; never printed; not committed. Publishable key NOT used for DDL.`,
     PROGRESS_END,
   ].filter((l) => l !== '').join('\n')
@@ -270,7 +329,7 @@ async function main() {
   const noRls = verification?.tables_without_rls ?? 0
   const ok = noRls === 0 && missingFns.length === 0
 
-  await updateProgress({ total: migrations.length, route, ...verification })
+  await updateProgress({ total: migrations.length, route, appliedMigrations: verification?.applied_migrations, ...verification })
 
   if (!ok) die(`verification reported issues: tables_without_rls=${noRls}, missing_required_functions=${JSON.stringify(missingFns)}`, 3)
   log('\nMigrations applied and verified. PROGRESS.md updated.')

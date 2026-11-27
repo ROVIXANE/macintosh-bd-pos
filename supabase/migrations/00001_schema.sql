@@ -9,7 +9,17 @@ create extension if not exists pgcrypto;
 -- Supabase compatibility shims for local/plain PostgreSQL.
 -- On Supabase these are no-ops: auth.users and auth.uid() already exist.
 -- ---------------------------------------------------------------------------
-create schema if not exists auth;
+-- On Supabase the `auth` schema is managed (owned by `supabase_auth_admin`); do not require
+-- CREATE on it. Only create `auth` on plain PostgreSQL, and never fail if not permitted.
+do $schema_auth$
+begin
+  if to_regnamespace('auth') is null then
+    execute 'create schema auth';
+  end if;
+exception when insufficient_privilege then
+  null;
+end
+$schema_auth$;
 
 -- Supabase always has these roles. Create them on plain local PostgreSQL so
 -- the migrations and the test script can be applied outside Supabase too.
@@ -27,21 +37,29 @@ begin
 end
 $roles_shim$;
 
-create table if not exists auth.users (
-  id uuid primary key,
-  email text,
-  raw_user_meta_data jsonb not null default '{}'::jsonb,
-  created_at timestamptz not null default now()
-);
+-- On Supabase `auth.users` is managed and already exists; PostgreSQL would still check
+-- CREATE on schema `auth` for `create table if not exists`, so guard on existence first.
+-- Only create this table on plain PostgreSQL; never require privileges on managed `auth`.
+do $users_shim$
+begin
+  if to_regclass('auth.users') is null then
+    execute $users_ddl$
+      create table auth.users (
+        id uuid primary key,
+        email text,
+        raw_user_meta_data jsonb not null default '{}'::jsonb,
+        created_at timestamptz not null default now()
+      )
+    $users_ddl$;
+  end if;
+exception when insufficient_privilege then
+  null;
+end
+$users_shim$;
 
 do $auth_shim$
 begin
-  if not exists (
-    select 1
-    from pg_proc p
-    join pg_namespace n on n.oid = p.pronamespace
-    where n.nspname = 'auth' and p.proname = 'uid'
-  ) then
+  if to_regprocedure('auth.uid()') is null then
     execute $uid_fn$
       create function auth.uid()
       returns uuid
@@ -52,12 +70,26 @@ begin
       $uid_body$
     $uid_fn$;
   end if;
+exception when insufficient_privilege then
+  null;
 end
 $auth_shim$;
 
-grant usage on schema auth to anon, authenticated;
 grant usage on schema public to anon, authenticated;
-grant execute on function auth.uid() to anon, authenticated;
+-- `auth` schema + `auth.uid()` are managed on Supabase (already granted); only attempt
+-- these on plain PostgreSQL where we created the shims, and never require ownership.
+do $auth_grants$
+begin
+  begin
+    grant usage on schema auth to anon, authenticated;
+  exception when insufficient_privilege then null; end;
+  if to_regprocedure('auth.uid()') is not null then
+    begin
+      grant execute on function auth.uid() to anon, authenticated;
+    exception when insufficient_privilege then null; end;
+  end if;
+end
+$auth_grants$;
 
 -- ---------------------------------------------------------------------------
 -- Tables

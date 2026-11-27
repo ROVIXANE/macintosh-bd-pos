@@ -84,9 +84,30 @@ Resumed session: recovered interrupted work. **Nothing was restarted, deleted, o
 - **Before this session:** runtime `Supabase … Invalid API key / HTTP 401` from placeholder key.
 - **Now:** Supabase key accepted; remaining error is `PGRST205 … Could not find the table 'public.store_settings'` because **migrations are not applied** (authorization blocker). `checkConnection()` now reports the accurate “schema missing / apply migrations” message.
 
+### `ERROR: permission denied for schema auth` — diagnosis & fix (reproduced + verified on local PostgreSQL 18 Supabase-style model)
+
+**Exact cause.** In `00001_schema.sql`, `create table if not exists auth.users (...)`. PostgreSQL checks **CREATE on schema `auth`** for `create table ... in schema` **even when `IF NOT EXISTS` would make it a no-op**, and on Supabase `auth` is a **managed schema owned by `supabase_auth_admin`**; `postgres` has `USAGE` but **not `CREATE`** on `auth`. **Reproduced verbatim** (`00001_schema.sql:35 ERROR: permission denied for schema auth / create table if not exists auth.users`) on a local PG18 model with `auth` owned by `supabase_auth_admin`. (Same root class for `create schema if not exists auth`, `create function auth.uid()`, `grant ... on schema auth`, `grant execute on function auth.uid()`, and `drop/create trigger on auth.users`, which reference the managed `auth` schema.)
+
+**Fix (no security weakening; no privileges granted on managed `auth`; no reset/drop).**
+- `create schema if not exists auth` → `DO` block: skip if `to_regnamespace('auth')` present; only create on plain PG; `exception when insufficient_privilege then null`.
+- `create table if not exists auth.users` → `DO` block: **only when `to_regclass('auth.users') is null`**; only create on plain PG; `exception when insufficient_privilege then null`. On Supabase `auth.users` is managed → **no-op**. **Not granting anything on `auth`.**
+- `auth.uid()` shim → `to_regprocedure('auth.uid()')`, only create if missing, `exception when insufficient_privilege then null`. (`auth.uid()` still used; never replaced/removed.)
+- `grant usage on schema auth` + `grant execute on function auth.uid()` → moved into guarded `DO`, `exception when insufficient_privilege then null`, only if missing; **removed on Supabase-managed `auth`**; app security/RLS unchanged. `grant usage on schema public` kept.
+- `references auth.users(id) on delete cascade` (profiles) **unchanged**; `auth.role()` not used anywhere; `auth.uid()` usage in `00002`/`00003` **unchanged**; **all RLS + security-definer + permission checks intact**.
+- `00003` `drop trigger if exists on_auth_user_created_macintosh on auth.users; create trigger ... on auth.users` **unchanged** (Supabase-supported); requires trigger privilege on `auth.users` (provided by Supabase `postgres`; NOT granted by these migrations).
+
+**Verified locally on real PostgreSQL 18** (`pkg install postgresql`; `initdb`; `postgres`-role non-superuser; `auth` owned by `supabase_auth_admin`; `auth.users`+`auth.uid()` managed; restricted grants):
+- `permission denied for schema auth` reproduced on original; **gone after fix**;
+- `00001→00004` apply in order; **24 tables, 0 without RLS, 53 policies, 57 functions, 4 roles + 1 `store_settings`, `on_auth_user_created_macintosh` trigger**;
+- **idempotent re-run** skips applied (tracked in `supabase_migrations.schema_migrations`, checksum);
+- `supabase/tests/rls_and_transaction_tests.sql` **all PASS** (anon blocked; sales can't adjust; dup serial; over-stock; negative stock; non-owner apply_role; idempotent checkout) — BEGIN/ROLLBACK, nothing persisted.
+- **Migration runner itself tested end-to-end** against this DB (`node scripts/migrate.mjs`): ordered, per-statement (`libpg-query` real PG grammar; **reports exact failing statement index + preview**, no secrets), one transaction per migration, verification JSON, `PROGRESS.md` update, re-run safe.
+- **Remote Supabase application NOT claimed** — apply on your project with `bash scripts/apply-migrations.sh` (one admin credential).
+
 ## Step 6 — Database status
 
 - Migrations: 4 files, correct order, idempotent where documented; **235 statements parse clean** with real PostgreSQL parser; **not applied/verified against remote** (authorization blocker).
+- **`ERROR: permission denied for schema auth` — root cause found & fixed.** See below.
 - RLS on every table; security-definer RPCs pinned `search_path`; transactional money/stock RPCs; audit triggers; role seed + `store_settings` seed; `handle_new_user` + `on_auth_user_created_macintosh`; `bootstrap_owner`.
 - CLI status: **not installed** (official `supabase_linux_arm64` binary can't execute on Android/bionic). Prepared `supabase/config.toml` + `scripts/apply-migrations.sh`.
 - `.env.example` documents required vars; `.env` present with **valid publishable key** (not printed); `.env` git-ignored.
@@ -116,10 +137,10 @@ Resumed session: recovered interrupted work. **Nothing was restarted, deleted, o
 - Live URL HTTP 200 ✅; CI success ✅; Supabase host reachable ✅; **Supabase key valid ✅**; migrations syntactically valid ✅; **migrations applied ❌ (authorization blocker)**
 
 <!-- MIGRATIONS:START -->
-## Migration runner status (auto-generated 2026-11-27T05:53:06.257Z)
-- Runner: `scripts/migrate.mjs` (Node, no Supabase CLI binary, no publishable key for DDL, no reset/drop).
-- Migrations found & ordered: 4. Applied set: [].
-- Route used: none (dry-run).
-- DRY RUN: no database changes made.
-- Credentials: read from environment only; never printed; not committed. Publishable key NOT used for DDL.
+## Migration runner status
+
+- Runner: `scripts/migrate.mjs` (Node, no Supabase CLI binary, no publishable key for DDL, no reset/drop; per-statement, one transaction per migration, idempotent `supabase_migrations.schema_migrations`, advisory lock, read-only verification, reports exact failing statement; secrets env-only, never printed/committed).
+- **`permission denied for schema auth` root cause fixed** (see above). `00001→00004` ordered; 235 statements parse clean.
+- **Verified on local throwaway PostgreSQL 18 (Supabase-style `auth` ownership model):** 24 tables / 0 without RLS / 53 policies / 57 functions / seeds 4+1; `rls_and_transaction_tests.sql` all PASS; idempotent re-run. **Not applied to your remote Supabase** (authorization blocker).
+- Run `bash scripts/apply-migrations.sh`; results regenerate this section.
 <!-- MIGRATIONS:END -->
