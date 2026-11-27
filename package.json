@@ -8,7 +8,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.node.json",
     "lint": "eslint .",
     "test": "vitest run --coverage=false",
-    "test:scripts": "node --test scripts/",
+    "test:scripts": "node --test scripts/*.test.mjs",
     "test:watch": "vitest",
     "build": "tsc --noEmit -p tsconfig.app.json && vite build",
     "preview": "vite preview"
