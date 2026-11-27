@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Download, Pencil, Plus, Trash2, Wallet } from 'lucide-react'
-import { Badge, Button, Card, CardHeader, DataTable, ErrorState, Field, Input, LoadingState, Modal, PageHeader, Textarea, type Column } from '@/components/ui'
+import { Badge, Button, Card, CardHeader, ConfirmDialog, DataTable, ErrorState, Field, Input, LoadingState, Modal, PageHeader, Textarea, type Column } from '@/components/ui'
 import { useAuth } from '@/context/AuthContext'
 import { useSettings } from '@/context/SettingsContext'
 import { useToast } from '@/context/ToastContext'

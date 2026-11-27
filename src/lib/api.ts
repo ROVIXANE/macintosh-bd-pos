@@ -144,10 +144,11 @@ export const api = {
     if (filters.customer_id) query = query.eq('customer_id', filters.customer_id)
     return unwrap<Sale[]>(query as unknown as PromiseLike<Query>)
   },
-  getSale: (id: string) => getSupabase().from('sales').select(SALE_SELECT).eq('id', id).single().then((r) => {
-    if (r.error) throw new Error(r.error.message)
-    return r.data as Sale
-  }),
+  getSale: async (id: string): Promise<Sale> => {
+    const result = await getSupabase().from('sales').select(SALE_SELECT).eq('id', id).single()
+    if (result.error) throw new Error(result.error.message)
+    return result.data as Sale
+  },
   checkout: (input: CheckoutInput): Promise<CheckoutResult> => rpc<CheckoutResult>('checkout', {
     p_items: input.items.map((item: CartItem) => ({
       product_id: item.product_id, quantity: item.quantity, unit_price: item.unit_price,

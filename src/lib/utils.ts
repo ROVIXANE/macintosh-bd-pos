@@ -26,28 +26,41 @@ export function formatNumber(value: number | null | undefined, digits = 2): stri
   })
 }
 
+const TIMEZONE = 'Asia/Dhaka'
+
 function pad(value: number): string {
   return String(value).padStart(2, '0')
 }
 
+function dateParts(value: string | Date): Record<string, string> | null {
+  const date = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(date.getTime())) return null
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: TIMEZONE, day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+  }).formatToParts(date)
+  return Object.fromEntries(parts.filter((part) => part.type !== 'literal').map((part) => [part.type, part.value]))
+}
+
 export function formatDate(value: string | Date | null | undefined): string {
   if (!value) return '—'
-  const date = value instanceof Date ? value : new Date(value)
-  if (Number.isNaN(date.getTime())) return '—'
-  return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${date.getFullYear()}`
+  const parts = dateParts(value)
+  if (!parts) return '—'
+  return `${parts.day}/${parts.month}/${parts.year}`
 }
 
 export function formatDateTime(value: string | Date | null | undefined): string {
   if (!value) return '—'
-  const date = value instanceof Date ? value : new Date(value)
-  if (Number.isNaN(date.getTime())) return '—'
-  return `${formatDate(date)} ${pad(date.getHours())}:${pad(date.getMinutes())}`
+  const parts = dateParts(value)
+  if (!parts) return '—'
+  return `${parts.day}/${parts.month}/${parts.year} ${parts.hour}:${parts.minute}`
 }
 
 export function toDateInput(value: string | Date): string {
-  const date = value instanceof Date ? value : new Date(value)
-  if (Number.isNaN(date.getTime())) return ''
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) return value
+  const parts = dateParts(value)
+  if (!parts) return ''
+  return `${parts.year}-${parts.month}-${parts.day}`
 }
 
 export function todayInput(): string {
@@ -126,36 +139,45 @@ export function toCSV(rows: Array<Record<string, unknown>>): string {
 }
 
 export function parseCSV(text: string): Array<Record<string, string>> {
-  const lines = text.replace(/^\uFEFF/, '').split(/\r?\n/).filter((line) => line.trim())
-  if (lines.length < 2) return []
-  const parseLine = (line: string): string[] => {
-    const result: string[] = []
-    let current = ''
-    let inQuotes = false
-    for (let i = 0; i < line.length; i += 1) {
-      const char = line[i]
-      if (char === '"') {
-        if (inQuotes && line[i + 1] === '"') {
-          current += '"'
-          i += 1
-        } else {
-          inQuotes = !inQuotes
-        }
-      } else if (char === ',' && !inQuotes) {
-        result.push(current.trim())
-        current = ''
+  const source = text.replace(/^\uFEFF/, '')
+  const rows: string[][] = []
+  let row: string[] = []
+  let field = ''
+  let inQuotes = false
+
+  for (let i = 0; i < source.length; i += 1) {
+    const char = source[i]
+    if (char === '"') {
+      if (inQuotes && source[i + 1] === '"') {
+        field += '"'
+        i += 1
       } else {
-        current += char
+        inQuotes = !inQuotes
       }
+      continue
     }
-    result.push(current.trim())
-    return result
+    if (char === ',' && !inQuotes) {
+      row.push(field.trim())
+      field = ''
+      continue
+    }
+    if ((char === '\n' || char === '\r') && !inQuotes) {
+      if (char === '\r' && source[i + 1] === '\n') i += 1
+      row.push(field.trim())
+      if (row.some((value) => value !== '')) rows.push(row)
+      row = []
+      field = ''
+      continue
+    }
+    field += char
   }
-  const headers = parseLine(lines[0])
-  return lines.slice(1).map((line) => {
-    const values = parseLine(line)
-    return Object.fromEntries(headers.map((header, i) => [header, values[i] ?? '']))
-  })
+
+  row.push(field.trim())
+  if (row.some((value) => value !== '')) rows.push(row)
+  if (rows.length < 2) return []
+
+  const [headers, ...values] = rows
+  return values.map((cells) => Object.fromEntries(headers.map((header, i) => [header, cells[i] ?? ''])))
 }
 
 export function errorMessage(error: unknown): string {

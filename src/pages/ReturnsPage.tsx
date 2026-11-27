@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { CheckCircle2, Plus, RotateCcw } from 'lucide-react'
-import { Badge, Button, Card, CardHeader, DataTable, ErrorState, Field, Input, LoadingState, Modal, PageHeader, Select, Textarea, Toggle, type Column } from '@/components/ui'
+import { Badge, Button, Card, CardHeader, DataTable, ErrorState, Field, Input, LoadingState, Modal, PageHeader, Select, Toggle, type Column } from '@/components/ui'
 import { useAuth } from '@/context/AuthContext'
 import { useSettings } from '@/context/SettingsContext'
 import { useToast } from '@/context/ToastContext'

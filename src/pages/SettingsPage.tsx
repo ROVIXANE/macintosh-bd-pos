@@ -7,7 +7,7 @@ import { useToast } from '@/context/ToastContext'
 import { api } from '@/lib/api'
 import type { StoreSettings } from '@/lib/types'
 import { errorMessage } from '@/lib/utils'
-import { firstError, required, runValidators } from '@/lib/validation'
+import { firstError, required } from '@/lib/validation'
 
 export function SettingsPage() {
   const { can } = useAuth()

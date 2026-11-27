@@ -5,7 +5,7 @@ import { useAuth } from '@/context/AuthContext'
 import { useToast } from '@/context/ToastContext'
 import { useAsync } from '@/hooks/useAsync'
 import { api } from '@/lib/api'
-import { ROLE_LABELS, type Permission } from '@/lib/permissions'
+import { ROLE_LABELS } from '@/lib/permissions'
 import type { Profile, Role } from '@/lib/types'
 import { errorMessage, formatDate } from '@/lib/utils'
 import { firstError, required, runValidators, validEmail, validPhone } from '@/lib/validation'
@@ -60,7 +60,7 @@ export function UsersPage() {
     { key: 'phone', label: 'Phone', render: (user) => user.phone ?? '—' },
     { key: 'role', label: 'Role', render: (user) => can('users.manage') && user.role !== 'owner' && user.id !== currentProfile?.id ? (
       <Select className="w-40" value={user.role} onChange={(event) => void changeRole(user, event.target.value as Role)}>
-        {[...ASSIGNABLE, ...(user.role === 'owner' ? ['owner' as Role] : [])].map((value) => <option key={value} value={value}>{ROLE_LABELS[value]}</option>)}
+        {ASSIGNABLE.map((value) => <option key={value} value={value}>{ROLE_LABELS[value]}</option>)}
       </Select>
     ) : <Badge tone={user.role === 'owner' ? 'purple' : 'blue'}>{ROLE_LABELS[user.role]}</Badge> },
     { key: 'status', label: 'Status', render: (user) => <Badge tone={user.is_active ? 'green' : 'red'}>{user.is_active ? 'Active' : 'Inactive'}</Badge> },

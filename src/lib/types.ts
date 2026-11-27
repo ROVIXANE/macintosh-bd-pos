@@ -9,6 +9,7 @@ export interface Profile {
   avatar_url: string | null
   created_at: string
   updated_at: string
+  created_by: string | null
 }
 
 export interface Category {
@@ -17,12 +18,19 @@ export interface Category {
   description: string | null
   parent_id: string | null
   is_active: boolean
+  created_at: string
+  updated_at: string
+  created_by: string | null
 }
 
 export interface Brand {
   id: string
   name: string
   description: string | null
+  is_active: boolean
+  created_at: string
+  updated_at: string
+  created_by: string | null
 }
 
 export interface Supplier {
@@ -33,7 +41,10 @@ export interface Supplier {
   email: string | null
   address: string | null
   notes: string | null
+  is_active: boolean
   created_at: string
+  updated_at: string
+  created_by: string | null
 }
 
 export interface Customer {
@@ -44,7 +55,10 @@ export interface Customer {
   address: string | null
   notes: string | null
   credit_limit: number
+  is_active: boolean
   created_at: string
+  updated_at: string
+  created_by: string | null
 }
 
 export type ProductCondition = 'new' | 'used' | 'refurbished'
@@ -85,6 +99,8 @@ export interface Product {
   operating_system: string | null
   created_at: string
   updated_at: string
+  created_by: string | null
+  updated_by: string | null
 }
 
 export type ProductInput = Omit<
@@ -111,6 +127,8 @@ export interface ProductSerial {
   sold_at: string | null
   notes: string | null
   created_at: string
+  updated_at: string
+  created_by: string | null
   product?: Pick<Product, 'id' | 'name' | 'sku' | 'selling_price'>
   supplier?: Pick<Supplier, 'id' | 'name'>
 }
@@ -126,6 +144,7 @@ export interface StockMovement {
   reason: string | null
   employee_id: string | null
   created_at: string
+  updated_at: string
   product?: Pick<Product, 'id' | 'name' | 'sku'>
   employee?: Pick<Profile, 'id' | 'full_name'>
 }
@@ -279,6 +298,8 @@ export interface Expense {
   employee_id: string | null
   receipt_url: string | null
   created_at: string
+  updated_at: string
+  created_by: string | null
   employee?: Pick<Profile, 'id' | 'full_name'> | null
 }
 
@@ -293,6 +314,8 @@ export interface ReturnRecord {
   approved_by: string | null
   notes: string | null
   created_at: string
+  updated_at: string
+  created_by: string | null
   sale?: Pick<Sale, 'id' | 'invoice_number' | 'total'>
   customer?: Pick<Customer, 'id' | 'name'> | null
   items?: ReturnItem[]
@@ -307,7 +330,9 @@ export interface ReturnItem {
   quantity: number
   condition: string | null
   restocked: boolean
+  restock_approved_by: string | null
   created_at: string
+  updated_at: string
   product?: Pick<Product, 'id' | 'name' | 'sku'>
 }
 
@@ -323,6 +348,8 @@ export interface WarrantyClaim {
   resolution: string | null
   repair_cost: number
   created_at: string
+  updated_at: string
+  created_by: string | null
   product?: Pick<Product, 'id' | 'name' | 'sku'>
   customer?: Pick<Customer, 'id' | 'name' | 'phone'> | null
   serial?: Pick<ProductSerial, 'id' | 'serial_number'> | null
@@ -339,6 +366,8 @@ export interface CashShift {
   closed_at: string | null
   status: 'open' | 'closed'
   notes: string | null
+  created_at: string
+  updated_at: string
   employee?: Pick<Profile, 'id' | 'full_name'>
 }
 
@@ -351,6 +380,7 @@ export interface CashMovement {
   description: string | null
   created_by: string | null
   created_at: string
+  updated_at: string
 }
 
 export interface AuditLog {
@@ -363,6 +393,7 @@ export interface AuditLog {
   new_data: unknown
   ip: string | null
   created_at: string
+  updated_at: string
 }
 
 export interface StoreSettings {
@@ -380,23 +411,23 @@ export interface StoreSettings {
   receipt_footer: string | null
   invoice_layout: string
   timezone: string
+  is_default: boolean
+  created_at: string
   updated_at: string
 }
 
+/** Keys returned by public.dashboard_stats() in 00003_functions.sql. */
 export interface DashboardStats {
-  today_sales: number
-  today_invoices: number
-  month_sales: number
+  today_sales_count: number
+  today_sales_sum: number
+  month_sales_sum: number
   products_sold: number
   inventory_value: number
-  low_stock: number
-  out_of_stock: number
-  customer_due: number
-  supplier_due: number
+  low_stock_count: number
+  out_of_stock_count: number
+  customer_due_sum: number
+  supplier_due_sum: number
   today_expenses: number
-  recent_sales?: Sale[]
-  best_sellers?: Array<{ name: string; quantity: number; revenue: number }>
-  daily_sales?: Array<{ day: string; total: number }>
 }
 
 export interface CustomerHistory {

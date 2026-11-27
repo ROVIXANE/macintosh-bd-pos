@@ -23,7 +23,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     if (!api.isConfigured()) { setLoading(false); return }
     try {
       const remote = await api.getSettings()
-      setSettings({ ...DEFAULT_SETTINGS, ...remote })
+      setSettings({ ...DEFAULT_SETTINGS, ...remote } as EffectiveSettings)
       setError(null)
     } catch (err) {
       setError(errorMessage(err))

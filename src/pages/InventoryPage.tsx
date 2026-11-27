@@ -7,7 +7,7 @@ import { useToast } from '@/context/ToastContext'
 import { useAsync } from '@/hooks/useAsync'
 import { api } from '@/lib/api'
 import type { Product, StockMovement } from '@/lib/types'
-import { downloadFile, errorMessage, formatDateTime, formatNumber, toCSV, toDateInput } from '@/lib/utils'
+import { downloadFile, errorMessage, formatDateTime, formatMoney, formatNumber, toCSV, toDateInput } from '@/lib/utils'
 
 export function InventoryPage() {
   const { can } = useAuth()

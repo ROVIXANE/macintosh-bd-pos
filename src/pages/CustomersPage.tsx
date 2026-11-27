@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ArrowLeft, Download, Eye, Pencil, Search, Trash2, UserPlus } from 'lucide-react'
-import { Badge, Button, Card, CardHeader, DataTable, ErrorState, Field, Input, LoadingState, Modal, PageHeader, Textarea, type Column } from '@/components/ui'
+import { Badge, Button, Card, CardHeader, ConfirmDialog, DataTable, ErrorState, Field, Input, LoadingState, Modal, PageHeader, Textarea, type Column } from '@/components/ui'
 import { useAuth } from '@/context/AuthContext'
 import { useSettings } from '@/context/SettingsContext'
 import { useToast } from '@/context/ToastContext'
@@ -17,7 +17,6 @@ function emptyCustomer(): Partial<Customer> {
 
 export function CustomersPage() {
   const { can } = useAuth()
-  const { settings } = useSettings()
   const toast = useToast()
   const [search, setSearch] = useState('')
   const [editing, setEditing] = useState<Partial<Customer> | null>(null)

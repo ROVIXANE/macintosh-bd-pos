@@ -64,7 +64,7 @@ join pg_namespace n on n.oid = p.pronamespace
 where n.nspname = 'public'
   and p.proname in (
     'has_permission', 'current_role', 'checkout', 'receive_purchase',
-    'adjust_stock', 'process_return', 'create_cash_shift',
+    'adjust_stock', 'process_return', 'approve_return', 'create_cash_shift',
     'close_cash_shift', 'cash_movement', 'apply_role',
     'set_profile_active', 'bootstrap_owner', 'dashboard_stats',
     'sales_report', 'inventory_report'
@@ -151,6 +151,7 @@ If a migration has already been committed and must be undone:
 
 Use `supabase.rpc(...)` rather than direct writes for money and stock:
 `checkout`, `receive_purchase`, `adjust_stock`, `process_return`,
-`create_cash_shift`, `close_cash_shift`, `cash_movement`, `dashboard_stats`,
+`approve_return`, `create_cash_shift`, `close_cash_shift`, `cash_movement`,
+`apply_role`, `set_profile_active`, `bootstrap_owner`, `dashboard_stats`,
 `sales_report`, and `inventory_report`. Direct client writes to `sales`,
 `sale_items` and `sale_payments` are blocked by RLS so totals cannot be forged.

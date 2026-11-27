@@ -5,10 +5,10 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
-  { ignores: ['dist', 'coverage', 'node_modules', 'src/vite-env.d.ts'] },
+  { ignores: ['dist', 'coverage', 'node_modules', 'app/vite-env.d.ts','src'] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
-    files: ['**/*.{ts,tsx}'],
+    files: ['app/**/*.{ts,tsx}'],
     languageOptions: {
       ecmaVersion: 2022,
       globals: globals.browser,
@@ -23,5 +23,10 @@ export default tseslint.config(
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
     },
+  },
+  {
+    // Context modules intentionally export their provider component and hook together.
+    files: ['app/context/*.tsx'],
+    rules: { 'react-refresh/only-export-components': 'off' },
   },
 )

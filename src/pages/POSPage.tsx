@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { CreditCard, Plus, Save, Search, ShoppingCart, Trash2 } from 'lucide-react'
+import { CreditCard, Save, Search, ShoppingCart, Trash2 } from 'lucide-react'
 import { Badge, Button, Card, CardHeader, Field, Input, Modal, PageHeader, Select } from '@/components/ui'
 import { useAuth } from '@/context/AuthContext'
 import { useSettings } from '@/context/SettingsContext'

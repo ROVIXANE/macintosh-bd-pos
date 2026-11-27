@@ -8,7 +8,7 @@ import { useToast } from '@/context/ToastContext'
 import { useAsync } from '@/hooks/useAsync'
 import { api } from '@/lib/api'
 import type { Sale } from '@/lib/types'
-import { downloadFile, errorMessage, formatDate, formatMoney, toCSV, toDateInput } from '@/lib/utils'
+import { downloadFile, formatDate, formatMoney, toCSV, toDateInput } from '@/lib/utils'
 
 export function InvoicesPage() {
   const { settings } = useSettings()

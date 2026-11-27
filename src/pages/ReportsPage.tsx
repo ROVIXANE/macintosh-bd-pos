@@ -6,7 +6,7 @@ import { useSettings } from '@/context/SettingsContext'
 import { useToast } from '@/context/ToastContext'
 import { useAsync } from '@/hooks/useAsync'
 import { api } from '@/lib/api'
-import { downloadFile, errorMessage, formatMoney, formatNumber, monthInput, toCSV, toDateInput } from '@/lib/utils'
+import { downloadFile, formatMoney, formatNumber, monthInput, toCSV, toDateInput } from '@/lib/utils'
 
 type Row = Record<string, unknown>
 const number = (value: unknown) => Number(value ?? 0)
