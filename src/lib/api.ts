@@ -68,7 +68,7 @@ export const api = {
   deleteBrand: (id: string) => table<Brand>('brands').remove(id),
 
   // Products and stock ------------------------------------------------------
-  listProducts: () => table<Product>('*').list(),
+  listProducts: () => table<Product>('products').list(),
   getProduct: async (id: string): Promise<Product> => {
     const result = await getSupabase().from('products').select('*').eq('id', id).single()
     if (result.error) throw new Error(result.error.message)
@@ -76,13 +76,13 @@ export const api = {
   },
   saveProduct: (input: ProductInput): Promise<Product> => {
     const { id, ...payload } = input
-    return table<Product>('*').save(id ? { ...payload, id } : payload)
+    return table<Product>('products').save(id ? { ...payload, id } : payload)
   },
-  deleteProduct: (id: string) => table<Product>('*').save({ id, is_archived: true }),
+  deleteProduct: (id: string) => table<Product>('products').save({ id, is_archived: true }),
 
-  listSerials: () => table<ProductSerial>(SERIAL_SELECT).list(),
-  saveSerial: (record: Partial<ProductSerial>) => table<ProductSerial>('*').save(record),
-  deleteSerial: (id: string) => table<ProductSerial>('*').remove(id),
+  listSerials: () => table<ProductSerial>('product_serials', SERIAL_SELECT).list(),
+  saveSerial: (record: Partial<ProductSerial>) => table<ProductSerial>('product_serials').save(record),
+  deleteSerial: (id: string) => table<ProductSerial>('product_serials').remove(id),
   listMovements: (filters: { from?: string; to?: string; product_id?: string } = {}): Promise<StockMovement[]> => {
     let query = getSupabase().from('stock_movements').select(MOVEMENT_SELECT).order('created_at', { ascending: false }).limit(500)
     query = dateFilter(query, filters.from, filters.to)
@@ -96,12 +96,12 @@ export const api = {
     }),
 
   // People ------------------------------------------------------------------
-  listCustomers: () => table<Customer>('*').list(),
-  getCustomer: (id: string) => table<Customer>('*').get(id),
-  saveCustomer: (record: Partial<Customer>) => table<Customer>('*').save(record),
-  deleteCustomer: (id: string) => table<Customer>('*').remove(id),
+  listCustomers: () => table<Customer>('customers').list(),
+  getCustomer: (id: string) => table<Customer>('customers').get(id),
+  saveCustomer: (record: Partial<Customer>) => table<Customer>('customers').save(record),
+  deleteCustomer: (id: string) => table<Customer>('customers').remove(id),
   getCustomerHistory: async (id: string): Promise<CustomerHistory> => {
-    const customer = await table<Customer>('*').get(id)
+    const customer = await table<Customer>('customers').get(id)
     const [sales, returns] = await Promise.all([
       unwrap<Sale[]>(getSupabase().from('sales').select(SALE_SELECT).eq('customer_id', id).order('sale_date', { ascending: false }) as unknown as PromiseLike<Query>),
       unwrap<ReturnRecord[]>(getSupabase().from('returns').select('*,sale:sales(id,invoice_number)').eq('customer_id', id) as unknown as PromiseLike<Query>),
@@ -109,14 +109,14 @@ export const api = {
     return { customer, sales, returns }
   },
 
-  listSuppliers: () => table<Supplier>('*').list(),
-  saveSupplier: (record: Partial<Supplier>) => table<Supplier>('*').save(record),
-  deleteSupplier: (id: string) => table<Supplier>('*').remove(id),
+  listSuppliers: () => table<Supplier>('suppliers').list(),
+  saveSupplier: (record: Partial<Supplier>) => table<Supplier>('suppliers').save(record),
+  deleteSupplier: (id: string) => table<Supplier>('suppliers').remove(id),
   addSupplierPayment: (input: { supplier_id: string; purchase_id?: string | null; amount: number; method: string; reference?: string | null }) =>
-    table<SupplierPayment>('*').save({ ...input, paid_at: new Date().toISOString() }),
+    table<SupplierPayment>('supplier_payments').save({ ...input, paid_at: new Date().toISOString() }),
 
   // Purchasing --------------------------------------------------------------
-  listPurchases: () => table<Purchase>(PURCHASE_SELECT).list(),
+  listPurchases: () => table<Purchase>('purchases', PURCHASE_SELECT).list(),
   getPurchase: (id: string) => getSupabase().from('purchases').select(PURCHASE_SELECT).eq('id', id).single().then((r) => {
     if (r.error) throw new Error(r.error.message)
     return r.data as Purchase
@@ -166,12 +166,12 @@ export const api = {
     p_held_cart_id: input.held_cart_id ?? null,
   }),
 
-  listHeldCarts: () => table<HeldCart>('*,customer:customers(id,name)').list(),
-  saveHeldCart: (record: Partial<HeldCart>) => table<HeldCart>('*').save(record),
-  deleteHeldCart: (id: string) => table<HeldCart>('*').remove(id),
+  listHeldCarts: () => table<HeldCart>('held_carts', '*,customer:customers(id,name)').list(),
+  saveHeldCart: (record: Partial<HeldCart>) => table<HeldCart>('held_carts').save(record),
+  deleteHeldCart: (id: string) => table<HeldCart>('held_carts').remove(id),
 
   // Returns and warranty ----------------------------------------------------
-  listReturns: () => table<ReturnRecord>(RETURN_SELECT).list(),
+  listReturns: () => table<ReturnRecord>('returns', RETURN_SELECT).list(),
   createReturn: (input: {
     sale_id: string; items: Array<{ sale_item_id: string; product_id: string; serial_id: string | null; quantity: number; condition: string }>
     refund_amount: number; reason: string; restock: boolean
@@ -185,9 +185,9 @@ export const api = {
   approveReturn: (id: string, restock: boolean) => rpc<{ return_id: string; status: string }>('approve_return', {
     p_return_id: id, p_restock: restock,
   }),
-  listClaims: () => table<WarrantyClaim>(CLAIM_SELECT).list(),
-  saveClaim: (record: Partial<WarrantyClaim>) => table<WarrantyClaim>('*').save(record),
-  deleteClaim: (id: string) => table<WarrantyClaim>('*').remove(id),
+  listClaims: () => table<WarrantyClaim>('warranty_claims', CLAIM_SELECT).list(),
+  saveClaim: (record: Partial<WarrantyClaim>) => table<WarrantyClaim>('warranty_claims').save(record),
+  deleteClaim: (id: string) => table<WarrantyClaim>('warranty_claims').remove(id),
 
   // Expenses ----------------------------------------------------------------
   listExpenses: (filters: { from?: string; to?: string; category?: string } = {}): Promise<Expense[]> => {
@@ -197,11 +197,11 @@ export const api = {
     if (filters.category) query = query.eq('category', filters.category)
     return unwrap<Expense[]>(query as unknown as PromiseLike<Query>)
   },
-  saveExpense: (record: Partial<Expense>) => table<Expense>('*').save(record),
-  deleteExpense: (id: string) => table<Expense>('*').remove(id),
+  saveExpense: (record: Partial<Expense>) => table<Expense>('expenses').save(record),
+  deleteExpense: (id: string) => table<Expense>('expenses').remove(id),
 
   // Cash --------------------------------------------------------------------
-  listShifts: () => table<CashShift>(SHIFT_SELECT).list(),
+  listShifts: () => table<CashShift>('cash_shifts', SHIFT_SELECT).list(),
   openShift: (openingBalance: number, notes: string) => rpc<{ shift_id: string }>('create_cash_shift', {
     p_opening_balance: openingBalance, p_notes: notes || null,
   }),
@@ -220,7 +220,7 @@ export const api = {
     }),
 
   // Users and settings ------------------------------------------------------
-  listUsers: () => table<Profile>('*').list(),
+  listUsers: () => table<Profile>('profiles').list(),
   applyRole: (userId: string, role: Role) => rpc('apply_role', { p_user: userId, p_role: role }),
   setActive: (userId: string, active: boolean) => rpc('set_profile_active', { p_user: userId, p_active: active }),
   bootstrapOwner: () => rpc('bootstrap_owner'),
@@ -250,9 +250,9 @@ export const api = {
   saveSettings: (settings: Partial<StoreSettings>) => {
     const { id, updated_at: _updated, ...payload } = settings
     void _updated
-    return table<StoreSettings>('*').save({ ...payload, ...(id ? { id } : {}) })
+    return table<StoreSettings>('store_settings').save({ ...payload, ...(id ? { id } : {}) })
   },
-  listAudit: () => table<AuditLog>('*').list(),
+  listAudit: () => table<AuditLog>('audit_logs').list(),
 
   // Reports -----------------------------------------------------------------
   dashboardStats: () => rpc<Record<string, unknown>>('dashboard_stats'),
