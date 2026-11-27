@@ -111,6 +111,7 @@ Resumed session: recovered interrupted work. **Nothing was restarted, deleted, o
 - `npm run typecheck` ✅
 - `npm run lint` ✅ (after fixing broken `eslint.config.js`)
 - `npm run test` ✅ **47/47, 7 files** (44 original + 3 new `supabase.test.ts`)
+- `npm run test:scripts` ✅ **7/7** (`scripts/migrate-lib.test.mjs`, node:test; runs in CI)
 - `npm run build` ✅
 - Live URL HTTP 200 ✅; CI success ✅; Supabase host reachable ✅; **Supabase key valid ✅**; migrations syntactically valid ✅; **migrations applied ❌ (authorization blocker)**
 
