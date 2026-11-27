@@ -116,8 +116,28 @@ Resumed session: recovered interrupted work. **Nothing was restarted, deleted, o
 
 - Workflow `deploy.yml` syntactically intact; latest runs **success**; `dist` builds with `/macintosh-bd-pos/` base + 404 fallback.
 - Live URL **https://rovixane.github.io/macintosh-bd-pos/** returns HTTP 200 (verified).
-- **Live app verified reaching Supabase:** deployed bundle contains valid `sb_publishable_*` key (placeholder removed, value not printed); REST returns `PGRST205` (no tables), **not** 401. **Data features remain unavailable until migrations are applied** (authorization blocker).
+- **Live app verified reaching Supabase:** deployed bundle contains valid `sb_publishable_*` key (placeholder removed, value not printed); REST returns `PGRST205` (no tables), **not** 401. **Remote migrations applied + verified** (24 tables / RLS / 53 policies / seeds); checkConnection() -> connected.
 - Session commit `77e2cf7` pushed; workflow run `45945430989` **success** (typecheck, lint, test, build, SPA check, Pages deploy); live URL re-verified HTTP 200.
+
+## Phase 2 — Production DB integration & owner setup (this session)
+
+- **App inspected:** `AuthContext`, `ProtectedRoute`, `SetupPage`, `LoginPage`, `UsersPage`, `api`, `checkout`, `DashboardPage`, `supabase.ts`. No mock data; **dashboard reads real DB** (`dashboard_stats`, `sales_report`, `inventory_report`, `listSales`); POS/products/inventory/customers/suppliers/purchases/expenses all call Supabase tables + RPCs.
+- **Supabase auth + session:** `persistSession`, `autoRefreshToken`, `detectSessionInUrl`, `storageKey`, `onAuthStateChange`; session restored on reload; `signIn`, `signUp`, `signOut`, `refresh`, `refreshProfile`. `handle_new_user` creates `profiles` (role `sales`). `getEphemeralClient` for employee signup (never clobbers owner session). No `service_role` in frontend; only `VITE_SUPABASE_PUBLISHABLE_KEY`.
+- **Owner bootstrap — secure, usable, idempotent:** `bootstrap_owner()` (security-definer, pinned `search_path`, **`pg_advisory_xact_lock`**, requires `auth.uid()`, **no pre-existing owner needed**, `insert … on conflict do update`, **fails once an owner exists**, owner can't be demoted/self-deactivated; `SetupPage` “first time owner” flow; first user `handle_new_user`→`sales` then promote). **No fabricated admin.** `SetupPage` redirects to dashboard once profile exists.
+- **Permissions + RLS vs actual schema:** owner/admin/inventory/sales roles; `has_permission`; `rls_current_role`; `products_manage` owner/admin/inventory; sales can't update `stock_quantity` directly (RLS → 0 rows); stock only via `adjust_stock`/`checkout`/`receive_purchase`; `apply_role` owner-only; anon blocked; security-definer RPCs `revoke public` + `grant authenticated` + pinned `search_path`.
+- **Remote connection verified:** `checkConnection()` → **connected** (publishable key; **no service-role**); remote schema applied (per your verification: 24 tables, RLS 24/24, 53 policies, migrations 4, 0 without RLS, 0 missing required functions). **No reset/drop/wipe.**
+- **Real CRUD + transaction verified on a REAL PostgreSQL 18 DB** with identical migrations (`scripts/integration-test-db.mjs`, `npm run test:integration-db`, disposable DB, **no production**, no service-role): **35/35 PASS**.
+- **Checkout RPC verified:** `p_items` `{product_id,quantity,unit_price,discount,serial_id}` + `p_payments` `{method,amount,reference}`; **stock decrement atomic**; `sale_items`, `sale_payments`, **invoice number**, totals `paid/due`, **serialized serial in-stock check → marks `sold`**, **over-stock rejected + rollback (stock unchanged)**, **idempotency key → same invoice, one sale**; client `validateCart` mirror; app `api.checkout` wiring correct.
+- **Dashboard real data verified** (`dashboard_stats` real counts/sums; `inventory_value`; `today_expenses`; dues; `sales_report`/`inventory_report`).
+- **Frontend/runtime issues:** none found breaking; typecheck/lint/tests/build green.
+- **Automated vs manual:** automated = typecheck, ESLint, **47 vitest + 7 scripts + 35 DB-integration + 7 RLS/transaction SQL**, production build, remote `checkConnection`, local PG18 reproduction. **Manual browser still required** for full owner signup→bootstrap→login→session→POS→print→inventory on **remote** (needs a real owner credential + no pre-existing test data on prod; we will not pollute production).
+- **Committed + pushed.**
+
+## Remaining blockers (Phase 2)
+
+- **No remote admin credential in this session** to run authenticated remote CRUD/checkout as a real owner; remote production data must not be polluted. → create owner in app (`/setup`), or test on a disposable remote DB.
+- **Manual browser E2E** (owner setup, login persistence, real POS checkout on remote, invoice printing) not executed here.
+- **`storage` bucket for product images** not configured (app stores `image_url`; no upload UI requirement verified) — not a security issue; no secrets.
 
 ## Next tasks (ordered)
 
@@ -137,10 +157,14 @@ Resumed session: recovered interrupted work. **Nothing was restarted, deleted, o
 - Live URL HTTP 200 ✅; CI success ✅; Supabase host reachable ✅; **Supabase key valid ✅**; migrations syntactically valid ✅; **migrations applied ❌ (authorization blocker)**
 
 <!-- MIGRATIONS:START -->
-## Migration runner status
-
-- Runner: `scripts/migrate.mjs` (Node, no Supabase CLI binary, no publishable key for DDL, no reset/drop; per-statement, one transaction per migration, idempotent `supabase_migrations.schema_migrations`, advisory lock, read-only verification, reports exact failing statement; secrets env-only, never printed/committed).
-- **`permission denied for schema auth` root cause fixed** (see above). `00001→00004` ordered; 235 statements parse clean.
-- **Verified on local throwaway PostgreSQL 18 (Supabase-style `auth` ownership model):** 24 tables / 0 without RLS / 53 policies / 57 functions / seeds 4+1; `rls_and_transaction_tests.sql` all PASS; idempotent re-run. **Not applied to your remote Supabase** (authorization blocker).
-- Run `bash scripts/apply-migrations.sh`; results regenerate this section.
+## Migration runner status (auto-generated 2026-11-27T06:33:20.747Z)
+- Runner: `scripts/migrate.mjs` (Node, no Supabase CLI binary, no publishable key for DDL, no reset/drop).
+- Migrations found & ordered: 4. Applied set: ["00001","00002","00003","00004"].
+- Route used: direct-postgres.
+- Tables: 24; RLS on: 24; without RLS: 0.
+- Policies: 53; tables without policies: [].
+- Functions: 20; missing required: []; security-definer w/o pinned search_path: 0.
+- Seeds: roles=4; store_settings=1.
+- Scope: results from the database this was last run against; remote-Supabase status is in "Database status" above.
+- Credentials: read from environment only; never printed; not committed. Publishable key NOT used for DDL.
 <!-- MIGRATIONS:END -->

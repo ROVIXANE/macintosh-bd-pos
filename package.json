@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "test": "vitest run --coverage=false",
     "test:scripts": "node --test scripts/*.test.mjs",
+    "test:integration-db": "node scripts/integration-test-db.mjs",
     "test:watch": "vitest",
     "build": "tsc --noEmit -p tsconfig.app.json && vite build",
     "preview": "vite preview"
