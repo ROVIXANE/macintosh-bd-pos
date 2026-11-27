@@ -27,7 +27,7 @@ export function SetupPage() {
   }, [])
 
   useEffect(() => {
-    if (!loading && profile) navigate('/', { replace: true })
+    if (!loading && profile?.role === 'owner') navigate('/', { replace: true })
   }, [loading, profile, navigate])
 
   async function register(event: React.FormEvent<HTMLFormElement>) {
