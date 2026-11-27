@@ -95,7 +95,7 @@ Resumed session: recovered interrupted work. **Nothing was restarted, deleted, o
 - Workflow `deploy.yml` syntactically intact; latest runs **success**; `dist` builds with `/macintosh-bd-pos/` base + 404 fallback.
 - Live URL **https://rovixane.github.io/macintosh-bd-pos/** returns HTTP 200 (verified).
 - Live app’s Supabase connectivity will fail until the placeholder key is replaced (see blocker).
-- Changes this session will redeploy on push to `main`.
+- Session commit `77e2cf7` pushed; workflow run `45945430989` **success** (typecheck, lint, test, build, SPA check, Pages deploy); live URL re-verified HTTP 200.
 
 ## Next tasks (ordered)
 
