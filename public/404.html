@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Redirecting…</title>
+    <script>
+      // GitHub Pages SPA fallback: preserve the requested path, then let the app restore it.
+      var base = '/macintosh-bd-pos/';
+      var path = window.location.pathname;
+      var relative = path.indexOf(base) === 0 ? path.slice(base.length) : path.replace(/^\//, '');
+      sessionStorage.setItem('macintosh-spa-redirect', '/' + relative + window.location.search + window.location.hash);
+      window.location.replace(base);
+    </script>
+  </head>
+  <body><a href="/macintosh-bd-pos/">Go to Macintosh BD POS</a></body>
+</html>
