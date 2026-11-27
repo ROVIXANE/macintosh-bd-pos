@@ -1,0 +1,10 @@
+# Supabase CLI configuration for Macintosh BD POS.
+# Project ref matches https://obukxsnevwddjzvodjov.supabase.co
+project_id = "obukxsnevwddjzvodjov"
+
+[api]
+enabled = true
+
+[db]
+# Remote application uses `supabase db push`; no local db is required.
+major_version = 15

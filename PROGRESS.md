@@ -70,46 +70,46 @@ Resumed session: recovered interrupted work. **Nothing was restarted, deleted, o
 
 ## Step 4 — Incomplete / blocked
 
-- [ ] **Supabase runtime connection — CREDENTIAL BLOCKER.** No *valid* publishable/anon key available:
-  - local `.env` `VITE_SUPABASE_PUBLISHABLE_KEY` = placeholder `তোমার_আগের_publishable_key` (length 26; `Invalid API key`, HTTP 401);
-  - GitHub secret `VITE_SUPABASE_PUBLISHABLE_KEY` = same Bengali placeholder (found in deployed bundle; secret values are not readable);
-  - `VITE_SUPABASE_URL` is a real project host, but without a key no schema/auth verification is possible.
-  **Needed:** user supplies the real Supabase publishable (anon) key → set in `.env` + GitHub secret `VITE_SUPABASE_PUBLISHABLE_KEY`, rebuild, and confirm `checkConnection()` = connected.
-- [ ] **Cannot verify remote DB migrations applied.** Migration files are complete; application state in the remote project is unknown without a key. (No local Postgres/Supabase CLI available to dry-run SQL.)
-- [ ] **SQL transaction suite not executed.** `supabase/tests/rls_and_transaction_tests.sql` requires a local/dev Postgres with `service_role`; no DB tooling in this environment.
-- [ ] **Not verified end-to-end in a browser:** auth login + a real `checkout` against live Supabase (blocked on valid key).
+- [x] **Publishable key verified.** Local `.env` `VITE_SUPABASE_PUBLISHABLE_KEY` = real `sb_publishable_*` key (not printed); key accepted by Supabase (no 401). `.env` confirmed git-ignored and never committed. GitHub secret `VITE_SUPABASE_PUBLISHABLE_KEY` replaced placeholder with the valid key; `VITE_SUPABASE_URL` set to `https://obukxsnevwddjzvodjov.supabase.co` (values not shown).
+- [x] **Supabase connection verified with the existing app.** `checkConnection()` → `isSupabaseConfigured=true`, project reachable, `store_settings` not found (`PGRST205`). No service-role/secret key used anywhere.
+- [ ] **CANNOT APPLY MIGRATIONS — AUTHORIZATION BLOCKER.** Remote `public` schema has no tables. Applying DDL requires Supabase **account authorization**, which is not available here: no `SUPABASE_ACCESS_TOKEN`, no DB password, no Supabase CLI; Supabase CLI (`supabase_linux_arm64` v3.4.0) downloaded but cannot execute on Android/bionic; **Management API rejects the publishable key (HTTP 401 “JWT could not be decoded”)**. **Everything is prepared:** `scripts/apply-migrations.sh`, `supabase/config.toml`, ordered migrations + manual SQL-editor fallback in `supabase/README.md`. **One action:** provide a Supabase personal access token (`SUPABASE_ACCESS_TOKEN`) or DB password (then `scripts/apply-migrations.sh`), or paste `00001`→`00004` into the Supabase SQL Editor.
+- [x] **Migrations syntactically validated** with the real PostgreSQL grammar (`libpg-query`, PG18 parser): `00001` 90 stmts, `00002` 83, `00003` 60, `00004` 2 — **235 statements parse clean**. Semantic application still requires the blocked DB access. SQL application NOT claimed.
+- [ ] **SQL transaction suite not executed.** `supabase/tests/rls_and_transaction_tests.sql` requires local/dev Postgres with `service_role` (BEGIN/ROLLBACK); no DB available. Safe to run once migrations are applied on a dev DB.
+- [ ] **Initial owner not created.** Requires tables + `handle_new_user` trigger; then sign up first user and `select public.bootstrap_owner();` (works even for a pre-existing auth user; fails once an owner exists; requires authenticated caller). NOT executed — **no secure owner credentials fabricated**.
+- [ ] **Not verified end-to-end in a browser:** login + real `checkout` against live Supabase (blocked on migrations).
 
 ## Step 5 — Current errors
 
 - None in TypeScript, ESLint, Vitest, or production build (all executed, all green).
-- Runtime `Supabase … Invalid API key / HTTP 401` when reaching remote Supabase with placeholder key (local check; live page itself serves 200).
+- **Before this session:** runtime `Supabase … Invalid API key / HTTP 401` from placeholder key.
+- **Now:** Supabase key accepted; remaining error is `PGRST205 … Could not find the table 'public.store_settings'` because **migrations are not applied** (authorization blocker). `checkConnection()` now reports the accurate “schema missing / apply migrations” message.
 
 ## Step 6 — Database status
 
-- Migrations: 4 files, correct order, idempotent where documented. **Not applied/verified against remote** (no valid credentials).
-- RLS on every table; security-definer RPCs pinned `search_path`; transactional money/stock RPCs; audit triggers; role seed + `store_settings` seed.
-- `.env.example` documents required vars; `.env` present but key is placeholder.
+- Migrations: 4 files, correct order, idempotent where documented; **235 statements parse clean** with real PostgreSQL parser; **not applied/verified against remote** (authorization blocker).
+- RLS on every table; security-definer RPCs pinned `search_path`; transactional money/stock RPCs; audit triggers; role seed + `store_settings` seed; `handle_new_user` + `on_auth_user_created_macintosh`; `bootstrap_owner`.
+- CLI status: **not installed** (official `supabase_linux_arm64` binary can't execute on Android/bionic). Prepared `supabase/config.toml` + `scripts/apply-migrations.sh`.
+- `.env.example` documents required vars; `.env` present with **valid publishable key** (not printed); `.env` git-ignored.
 
 ## Step 7 — Deployment status
 
 - Workflow `deploy.yml` syntactically intact; latest runs **success**; `dist` builds with `/macintosh-bd-pos/` base + 404 fallback.
 - Live URL **https://rovixane.github.io/macintosh-bd-pos/** returns HTTP 200 (verified).
-- Live app’s Supabase connectivity will fail until the placeholder key is replaced (see blocker).
+- Live app’s Supabase connectivity will succeed once the CI secret rebuild deploys a valid key; **data features remain unavailable until migrations are applied** (authorization blocker).
 - Session commit `77e2cf7` pushed; workflow run `45945430989` **success** (typecheck, lint, test, build, SPA check, Pages deploy); live URL re-verified HTTP 200.
 
 ## Next tasks (ordered)
 
-1. **(Blocker — user action)** Provide real Supabase publishable key; set `.env` + GitHub secret; rebuild; verify `checkConnection()`.
-2. Apply migrations `00001`→`00004` in remote Supabase (SQL editor / CLI); run verification queries in `supabase/README.md`.
-3. Create first auth user; `select public.bootstrap_owner();`; smoke-test roles/permissions.
-4. Run `supabase/tests/rls_and_transaction_tests.sql` on a **dev** database (service_role; BEGIN/ROLLBACK).
-5. Browser smoke test: login → POS checkout → invoice print → inventory movement → purchase → return → expense → cash shift → reports → Bengali toggle.
-6. Confirm redeploy run green on `main`; re-verify live URL + `/macintosh-bd-pos/` base + SPA 404 fallback.
+1. **(Authorization blocker)** Provide `SUPABASE_ACCESS_TOKEN` or DB password → run `scripts/apply-migrations.sh`, **or** paste `00001`→`00004` into Supabase SQL Editor; then run verification queries in `supabase/README.md`. (Publishable key already valid — no need to provide it again.)
+2. Create first auth user; `select public.bootstrap_owner();`; smoke-test roles/permissions.
+3. Run `supabase/tests/rls_and_transaction_tests.sql` on a **dev** database (service_role; BEGIN/ROLLBACK).
+4. Browser smoke test: login → POS checkout → invoice print → inventory movement → purchase → return → expense → cash shift → reports → Bengali toggle.
+5. Confirm redeploy run green on `main`; re-verify live URL + `/macintosh-bd-pos/` base + SPA 404 fallback.
 
 ## Executed checks (this session)
 
 - `npm run typecheck` ✅
 - `npm run lint` ✅ (after fixing broken `eslint.config.js`)
-- `npm run test` ✅ 44/44
+- `npm run test` ✅ **47/47, 7 files** (44 original + 3 new `supabase.test.ts`)
 - `npm run build` ✅
-- Live URL HTTP 200 ✅; GitHub secrets present ✅; CI runs success ✅; Supabase host reachable ✅; **Supabase key validity ❌ (placeholder)**
+- Live URL HTTP 200 ✅; CI success ✅; Supabase host reachable ✅; **Supabase key valid ✅**; migrations syntactically valid ✅; **migrations applied ❌ (authorization blocker)**

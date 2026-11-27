@@ -32,16 +32,28 @@ export function getEphemeralClient(): SupabaseClient {
 
 export type ConnectionState = 'checking' | 'connected' | 'unauthorized' | 'error' | 'not_configured'
 
+/** Classify a PostgREST/auth error without leaking credentials. */
+export function classifySupabaseError(message: string, code?: string): { state: ConnectionState; message: string } {
+  const text = `${message} ${code ?? ''}`.toLowerCase()
+  if (text.includes('jwt') || text.includes('auth') || text.includes('invalid api key') || code === '401') {
+    return { state: 'unauthorized', message: 'Supabase rejected the publishable key. Verify the key and that RLS policies allow reads.' }
+  }
+  if (
+    text.includes('relation') || text.includes('does not exist') || text.includes('could not find the table') ||
+    text.includes('schema cache') || code === '42P01' || code === 'PGRST204' || code === 'PGRST205'
+  ) {
+    return { state: 'error', message: 'Supabase is reachable, but the database schema is missing. Apply the SQL migrations.' }
+  }
+  return { state: 'error', message: `Supabase connection failed: ${message}` }
+}
+
 export async function checkConnection(): Promise<{ state: ConnectionState; message: string }> {
   if (!isSupabaseConfigured) return { state: 'not_configured', message: configHint }
   try {
     const supabase = getSupabase()
     const { error } = await supabase.from('store_settings').select('id').limit(1)
     if (!error) return { state: 'connected', message: 'Connected to Supabase.' }
-    const text = `${error.message} ${error.code ?? ''}`.toLowerCase()
-    if (text.includes('jwt') || text.includes('auth') || error.code === '401') return { state: 'unauthorized', message: 'Supabase rejected the publishable key. Verify the key and that RLS policies allow reads.' }
-    if (text.includes('relation') || text.includes('does not exist') || error.code === '42P01') return { state: 'error', message: 'Supabase is reachable, but the database schema is missing. Apply the SQL migrations.' }
-    return { state: 'error', message: `Supabase connection failed: ${error.message}` }
+    return classifySupabaseError(error.message, error.code)
   } catch (error) {
     return { state: 'error', message: error instanceof Error ? error.message : 'Supabase connection failed.' }
   }
