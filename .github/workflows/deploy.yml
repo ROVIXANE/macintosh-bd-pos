@@ -40,6 +40,9 @@ jobs:
       - name: Unit and integration tests
         run: npm run test
 
+      - name: Migration-runner tests
+        run: npm run test:scripts
+
       - name: Production build
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}

@@ -72,7 +72,7 @@ Resumed session: recovered interrupted work. **Nothing was restarted, deleted, o
 
 - [x] **Publishable key verified.** Local `.env` `VITE_SUPABASE_PUBLISHABLE_KEY` = real `sb_publishable_*` key (not printed); key accepted by Supabase (no 401). `.env` confirmed git-ignored and never committed. GitHub secret `VITE_SUPABASE_PUBLISHABLE_KEY` replaced placeholder with the valid key; `VITE_SUPABASE_URL` set to `https://obukxsnevwddjzvodjov.supabase.co` (values not shown).
 - [x] **Supabase connection verified with the existing app.** `checkConnection()` → `isSupabaseConfigured=true`, project reachable, `store_settings` not found (`PGRST205`). No service-role/secret key used anywhere.
-- [ ] **CANNOT APPLY MIGRATIONS — AUTHORIZATION BLOCKER.** Remote `public` schema has no tables. Applying DDL requires Supabase **account authorization**, which is not available here: no `SUPABASE_ACCESS_TOKEN`, no DB password, no Supabase CLI; Supabase CLI (`supabase_linux_arm64` v3.4.0) downloaded but cannot execute on Android/bionic; **Management API rejects the publishable key (HTTP 401 “JWT could not be decoded”)**. **Everything is prepared:** `scripts/apply-migrations.sh`, `supabase/config.toml`, ordered migrations + manual SQL-editor fallback in `supabase/README.md`. **One action:** provide a Supabase personal access token (`SUPABASE_ACCESS_TOKEN`) or DB password (then `scripts/apply-migrations.sh`), or paste `00001`→`00004` into the Supabase SQL Editor.
+- [ ] **CANNOT APPLY MIGRATIONS — AUTHORIZATION BLOCKER.** Remote `public` schema has no tables. Applying DDL requires Supabase **account authorization**, which is not available here: no `SUPABASE_ACCESS_TOKEN`, no DB password, no Supabase CLI; Supabase CLI (`supabase_linux_arm64` v3.4.0) downloaded but cannot execute on Android/bionic; **Management API rejects the publishable key (HTTP 401 “JWT could not be decoded”)**. **Everything is prepared — no manual SQL, no Supabase CLI:** `scripts/migrate.mjs` + `scripts/apply-migrations.sh` (Node + pure-JS `postgres`, ordered/idempotent transactional application, read-only verification of tables/RLS/policies/functions/seeds, auto `PROGRESS.md` update; secrets env-only/hidden, never printed/stored/committed; **publishable key refused for DDL**; no reset/drop). `supabase/config.toml`, `docs/MIGRATIONS.md`, manual fallback in `supabase/README.md`. **One action (cannot be automated):** provide ONE admin credential at the hidden prompt — DB **password** (Option 1, `SUPABASE_DB_URL`) or Supabase **personal access token** `sbp_...` (Option 2, `SUPABASE_ACCESS_TOKEN` + `SUPABASE_PROJECT_REF`).
 - [x] **Migrations syntactically validated** with the real PostgreSQL grammar (`libpg-query`, PG18 parser): `00001` 90 stmts, `00002` 83, `00003` 60, `00004` 2 — **235 statements parse clean**. Semantic application still requires the blocked DB access. SQL application NOT claimed.
 - [ ] **SQL transaction suite not executed.** `supabase/tests/rls_and_transaction_tests.sql` requires local/dev Postgres with `service_role` (BEGIN/ROLLBACK); no DB available. Safe to run once migrations are applied on a dev DB.
 - [ ] **Initial owner not created.** Requires tables + `handle_new_user` trigger; then sign up first user and `select public.bootstrap_owner();` (works even for a pre-existing auth user; fails once an owner exists; requires authenticated caller). NOT executed — **no secure owner credentials fabricated**.
@@ -100,7 +100,7 @@ Resumed session: recovered interrupted work. **Nothing was restarted, deleted, o
 
 ## Next tasks (ordered)
 
-1. **(Authorization blocker)** Provide `SUPABASE_ACCESS_TOKEN` or DB password → run `scripts/apply-migrations.sh`, **or** paste `00001`→`00004` into Supabase SQL Editor; then run verification queries in `supabase/README.md`. (Publishable key already valid — no need to provide it again.)
+1. **(Authorization blocker)** `bash scripts/apply-migrations.sh` → choose Option 1 (paste DB password→`SUPABASE_DB_URL`) or Option 2 (paste `sbp_...`→`SUPABASE_ACCESS_TOKEN`); hidden, nothing stored. Then migrations + verification + `PROGRESS.md` update run automatically. (Publishable key already valid & **not** needed again; it can't run DDL.)
 2. Create first auth user; `select public.bootstrap_owner();`; smoke-test roles/permissions.
 3. Run `supabase/tests/rls_and_transaction_tests.sql` on a **dev** database (service_role; BEGIN/ROLLBACK).
 4. Browser smoke test: login → POS checkout → invoice print → inventory movement → purchase → return → expense → cash shift → reports → Bengali toggle.
@@ -113,3 +113,12 @@ Resumed session: recovered interrupted work. **Nothing was restarted, deleted, o
 - `npm run test` ✅ **47/47, 7 files** (44 original + 3 new `supabase.test.ts`)
 - `npm run build` ✅
 - Live URL HTTP 200 ✅; CI success ✅; Supabase host reachable ✅; **Supabase key valid ✅**; migrations syntactically valid ✅; **migrations applied ❌ (authorization blocker)**
+
+<!-- MIGRATIONS:START -->
+## Migration runner status (auto-generated 2026-11-27T05:53:06.257Z)
+- Runner: `scripts/migrate.mjs` (Node, no Supabase CLI binary, no publishable key for DDL, no reset/drop).
+- Migrations found & ordered: 4. Applied set: [].
+- Route used: none (dry-run).
+- DRY RUN: no database changes made.
+- Credentials: read from environment only; never printed; not committed. Publishable key NOT used for DDL.
+<!-- MIGRATIONS:END -->
