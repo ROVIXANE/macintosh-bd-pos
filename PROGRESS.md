@@ -95,7 +95,7 @@ Resumed session: recovered interrupted work. **Nothing was restarted, deleted, o
 
 - Workflow `deploy.yml` syntactically intact; latest runs **success**; `dist` builds with `/macintosh-bd-pos/` base + 404 fallback.
 - Live URL **https://rovixane.github.io/macintosh-bd-pos/** returns HTTP 200 (verified).
-- Live app’s Supabase connectivity will succeed once the CI secret rebuild deploys a valid key; **data features remain unavailable until migrations are applied** (authorization blocker).
+- **Live app verified reaching Supabase:** deployed bundle contains valid `sb_publishable_*` key (placeholder removed, value not printed); REST returns `PGRST205` (no tables), **not** 401. **Data features remain unavailable until migrations are applied** (authorization blocker).
 - Session commit `77e2cf7` pushed; workflow run `45945430989` **success** (typecheck, lint, test, build, SPA check, Pages deploy); live URL re-verified HTTP 200.
 
 ## Next tasks (ordered)
